@@ -8,22 +8,29 @@ import { computeSwap, coinAfterSpread } from "./lib/market";
 import abbreviate from "./abbreviate";
 
 const colors = ["#0088FE", "#FFBB28"];
-const ust_swap_size = 100000;
 
 function App() {
   const lcd = useLCDClient();
   const [swapRate, setSwapRate] = useState([]);
+  const [ust_swap_size, setSwapSize] = useState(100000);
   const [delta, setDelta] = useState();
   const [isAnimation, setIsAnimation] = useState(true);
-  const [config, setConfig] = useState([[], [49000000, 51000000], 0]);
+  const [config, setConfig] = useState([
+    50000000,
+    [],
+    [49000000, 51000000],
+    0,
+    0,
+  ]);
 
-  const [data, scale, slippage] = config;
+  const [basePool, data, scale, slippage, recovery] = config;
 
   useEffect(() => {
     const fetchPools = async () => {
       const delta = await lcd.market.poolDelta();
       const luna_rates = await lcd.oracle.exchangeRates();
-      const { base_pool, min_stability_spread } = await lcd.market.parameters();
+      const { base_pool, min_stability_spread, pool_recovery_period } =
+        await lcd.market.parameters();
       const microTerraSide = base_pool.plus(delta);
       const microLunaSide = base_pool.pow(2).div(microTerraSide);
 
@@ -55,6 +62,7 @@ function App() {
       const perfectSwapRate = 1000 / exchangeRate.amount.toNumber();
 
       setConfig([
+        base_pool.div(1e6).toNumber(),
         [
           {
             name: "Stablecoins",
@@ -69,6 +77,7 @@ function App() {
         100 -
           (terraSwapRate.amount.times(0.000001).toNumber() / perfectSwapRate) *
             100,
+        pool_recovery_period,
       ]);
     };
 
@@ -101,8 +110,8 @@ function App() {
         </Bar>
         <ReferenceLine
           isFront={false}
-          label={{ position: "top", value: "BasePool (in SDR)" }}
-          y={50000000}
+          label={{ position: "top", value: `BasePool (in SDR)` }}
+          y={basePool}
           stroke="#000"
         />
         <YAxis
@@ -144,15 +153,23 @@ function App() {
           (live view, updated every block):{" "}
         </span>
       </h2>
-
       <Chart />
       <hr />
-      <div>Current delta: {delta?.div(1e6).toFixed(4)} SDR</div>
+      <div>
+        <strong>Market parameters</strong>
+        <div>Base Pool: {basePool} SDR</div>
+        <div>Current delta: {delta?.div(1e6).toFixed(6)} SDR</div>
+        <div>Recovery period: {recovery} Blocks </div>
+        <span>
+          (delta / recovery = {(delta / recovery / 1e6).toFixed(2)} SDR per
+          block)
+        </span>
+      </div>
+      <hr />
       {beforeSpreadFee && (
         <div>
-          Oracle Rate: {ust_swap_size} ust = {beforeSpreadFee.toFixed(2)} luna
-          ($
-          {(ust_swap_size / beforeSpreadFee).toFixed(4)} per luna)
+          Oracle Rate: ${(ust_swap_size / beforeSpreadFee).toFixed(4)} per luna
+          ({ust_swap_size} UST = {beforeSpreadFee.toFixed(2)} luna)
         </div>
       )}
 
@@ -163,49 +180,6 @@ function App() {
           {(ust_swap_size / afterSpreadFee).toFixed(4)} per luna)
         </div>
       )}
-
-      <hr />
-
-      {/* <ul>
-        <li>
-          The Market module enables atomic swaps between different Terra
-          stablecoin denominations and Luna. This module ensures an available,
-          liquid market, stable prices, and fair exchange rates between the
-          protocol’s assets.
-        </li>
-
-        <li>Terra uses a Constant Product market-making algorithm to ensure
-        liquidity for Terra&lt;&gt;Luna swaps.</li>
-        <li>
-          The market starts out with two liquidity pools of equal sizes (BasePool above), one
-          representing all denominations of Terra and another representing Luna.
-        </li>
-        <li>
-          At the end of each block the market module attempts to replenish the
-          pools by decreasing the magnitude of the delta between the Terra and
-          Luna pools.
-        </li>
-        <li>
-          This mechanism ensures liquidity and acts as a low-pass filter,
-          allowing for the spread fee to drop back down when there is a change
-          in demand, causing a necessary change in supply which needs to be
-          absorbed.
-        </li>
-      </ul>
-    
-      <p>
-        <b>
-          This is a very high level overview. Visit the{" "}
-          <a
-            rel="noreferrer"
-            target="_blank"
-            href="https://docs.terra.money/docs/develop/module-specifications/spec-market.html"
-          >
-            
-          </a>{" "}
-          on the market module for more information.
-        </b>
-      </p> */}
       <p>
         Estimated fee for a 1000 UST to Luna swap based on current pool weights:{" "}
         {slippage.toFixed(2)}% <br />
