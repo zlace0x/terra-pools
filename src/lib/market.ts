@@ -49,6 +49,7 @@ export function computeSwap(offerCoin: Coin, askDenom: string, rates: Coins, bas
 }
 
 export function coinAfterSpread(coin: Coin, spread: Dec) {
+	if (!coin) return null;
 	return new Coin(coin.denom, coin.amount.minus(coin.amount.times(spread)));
 }
 
