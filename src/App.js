@@ -14,6 +14,7 @@ function App() {
   const [swapRate, setSwapRate] = useState([]);
   const [ust_swap_size, setSwapSize] = useState(100000);
   const [delta, setDelta] = useState();
+  const [height, setHeight] = useState();
   const [isAnimation, setIsAnimation] = useState(true);
   const [config, setConfig] = useState([
     50000000,
@@ -28,6 +29,7 @@ function App() {
   useEffect(() => {
     const fetchPools = async () => {
       const delta = await lcd.market.poolDelta();
+      const latest_block = await lcd.tendermint.blockInfo();
       const luna_rates = await lcd.oracle.exchangeRates();
       const { base_pool, min_stability_spread, pool_recovery_period } =
         await lcd.market.parameters();
@@ -38,6 +40,7 @@ function App() {
       const lunaSide = microLunaSide.times(0.000001).toNumber();
 
       setDelta(delta);
+      setHeight(latest_block.block.header.height);
       const ustSwapRate = computeSwap(
         new Coin("uusd", ust_swap_size * 1e6),
         "uluna",
@@ -156,6 +159,7 @@ function App() {
       <Chart />
       <hr />
       <div>
+        <div>At height: {height}</div>
         <strong>Market parameters</strong>
         <div>Base Pool: {basePool} SDR</div>
         <div>Current delta: {delta?.div(1e6).toFixed(6)} SDR</div>
@@ -176,7 +180,7 @@ function App() {
       {afterSpreadFee && (
         <div>
           With {swapRate[1]?.times(100).toFixed(2)} % spread fee:{" "}
-          {ust_swap_size} ust = {afterSpreadFee.toFixed(2)} luna ($
+          {ust_swap_size} UST = {afterSpreadFee.toFixed(2)} luna ($
           {(ust_swap_size / afterSpreadFee).toFixed(4)} per luna)
         </div>
       )}
